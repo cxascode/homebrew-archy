@@ -1,0 +1,82 @@
+name: Archy Version Check
+
+on:
+#   schedule:
+#     - cron: "0 6 * * *" #runs daily at 6 UTC
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest version
+        id: latest
+        run: |
+          VERSION=$(curl -fsSL https://sdk-cdn.mypurecloud.com/archy/versions.json \
+            | jq -r '.[].version' \
+            | sort -V \
+            | tail -n1)
+
+          if [ -z "$VERSION" ]; then
+            echo "Failed to determine latest version"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current version
+        id: current
+        run: |
+          VERSION=$(grep -E '^  version "' Casks/archy.rb | cut -d'"' -f2)
+
+          if [ -z "$VERSION" ]; then
+            echo "Failed to read current version"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare versions
+        id: compare
+        run: |
+          if [ "${{ steps.latest.outputs.version }}" != "${{ steps.current.outputs.version }}" ]; then
+            echo "update=true" >> $GITHUB_OUTPUT
+          else
+            echo "update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download artifact and compute SHA256
+        if: steps.compare.outputs.update == 'true'
+        id: hash
+        run: |
+          URL="https://sdk-cdn.mypurecloud.com/archy/${{ steps.latest.outputs.version }}/archy-macos.zip"
+
+          curl -fL "$URL" -o archy.zip
+
+          SHA=$(shasum -a 256 archy.zip | awk '{print $1}')
+
+          if [ -z "$SHA" ]; then
+            echo "Failed to compute SHA"
+            exit 1
+          fi
+
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Update cask file
+        if: steps.compare.outputs.update == 'true'
+        run: |
+          sed -i "s/^  version \".*\"/  version \"${{ steps.latest.outputs.version }}\"/" Casks/archy.rb
+          sed -i "s/^  sha256 \".*\"/  sha256 \"${{ steps.hash.outputs.sha }}\"/" Casks/archy.rb
+
+      - name: Commit and push
+        if: steps.compare.outputs.update == 'true'
+        run: |
+          git config user.name "archy-bot"
+          git config user.email "bot@example.com"
+
+          git add Casks/archy.rb
+          git commit -m "Update archy to ${{ steps.latest.outputs.version }}"
+          git push
