@@ -5,8 +5,11 @@ on:
 #     - cron: "0 6 * * *" #runs daily at 6 UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  bump:
+  archyversioncheck:
     runs-on: ubuntu-latest
 
     steps:
@@ -74,8 +77,8 @@ jobs:
       - name: Commit and push
         if: steps.compare.outputs.update == 'true'
         run: |
-          git config user.name "archy-bot"
-          git config user.email "bot@example.com"
+          git config user.name "archy-version-check"
+          git config user.email "no-reply@genesys.com"
 
           git add Casks/archy.rb
           git commit -m "Update archy to ${{ steps.latest.outputs.version }}"
