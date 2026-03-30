@@ -17,8 +17,7 @@ cask "archy" do
     ohai "Patching Archy launcher"
 
     unless File.exist?(launcher)
-      opoo "Launcher not found: #{launcher}"
-      next
+      raise "Launcher not found: #{launcher}"
     end
 
     content = File.read(launcher)
