@@ -22,11 +22,13 @@ cask "archy" do
     end
 
     content = File.read(launcher)
-    if content.include?("./archyBin/")
-      inreplace launcher,
-        %r{^exec "\./archyBin/archy-macos-[^"]+"},
-        "exec \"#{archypath}/archyBin/archy-macos-#{version}\""
-    end
+
+    new_content = content.gsub(
+      %r{exec "\./archyBin/archy-macos-[^"]+"},
+      "exec \"#{archypath}/archyBin/archy-macos-#{version}\""
+    )
+
+    File.write(launcher, new_content)
   end
 
   caveats do
