@@ -48,11 +48,10 @@ jobs:
           fi
 
           git commit -m "chore: monthly keep-alive heartbeat [skip ci]"
+          git pull --rebase
           git push
 
   archyversioncheck:
-    needs: keepalive
-    if: always()
     runs-on: ubuntu-latest
 
     steps:
@@ -143,4 +142,5 @@ jobs:
           fi
 
           git commit -m "Update archy to ${{ steps.latest.outputs.version }}"
+          git pull --rebase
           git push
