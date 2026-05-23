@@ -1,15 +1,58 @@
 name: Archy Version Check
 
 on:
-#   schedule:
-#     - cron: "0 6 * * *" #runs daily at 6 UTC
+  schedule:
+    - cron: "23 6 * * *" # once per day UTC
   workflow_dispatch:
+
+concurrency:
+  group: archy-version-check
+  cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Reset GitHub 60-Day Inactivity Clock
+        run: |
+          set -euo pipefail
+
+          # Only commit on the first day of the month.
+          if [ "$(date -u +%d)" != "01" ]; then
+            echo "Skipping keep-alive heartbeat today; only runs on the 1st of the month."
+            exit 0
+          fi
+
+          echo "First of the month detected. Creating keep-alive heartbeat..."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p .automation
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .automation/keep_alive.txt
+
+          git add .automation/keep_alive.txt
+
+          if git diff --cached --quiet; then
+            echo "No keep-alive changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: monthly keep-alive heartbeat [skip ci]"
+          git push
+
   archyversioncheck:
+    needs: keepalive
+    if: always()
     runs-on: ubuntu-latest
 
     steps:
@@ -18,6 +61,8 @@ jobs:
       - name: Get latest version
         id: latest
         run: |
+          set -euo pipefail
+
           VERSION=$(curl -fsSL https://sdk-cdn.mypurecloud.com/archy/versions.json \
             | jq -r '.[].version' \
             | sort -V \
@@ -28,11 +73,13 @@ jobs:
             exit 1
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get current version
         id: current
         run: |
+          set -euo pipefail
+
           VERSION=$(grep -E '^  version "' Casks/archy.rb | cut -d'"' -f2)
 
           if [ -z "$VERSION" ]; then
@@ -40,21 +87,25 @@ jobs:
             exit 1
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Compare versions
         id: compare
         run: |
+          set -euo pipefail
+
           if [ "${{ steps.latest.outputs.version }}" != "${{ steps.current.outputs.version }}" ]; then
-            echo "update=true" >> $GITHUB_OUTPUT
+            echo "update=true" >> "$GITHUB_OUTPUT"
           else
-            echo "update=false" >> $GITHUB_OUTPUT
+            echo "update=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Download artifact and compute SHA256
         if: steps.compare.outputs.update == 'true'
         id: hash
         run: |
+          set -euo pipefail
+
           URL="https://sdk-cdn.mypurecloud.com/archy/${{ steps.latest.outputs.version }}/archy-macos.zip"
 
           curl -fL "$URL" -o archy.zip
@@ -66,20 +117,30 @@ jobs:
             exit 1
           fi
 
-          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Update cask file
         if: steps.compare.outputs.update == 'true'
         run: |
+          set -euo pipefail
+
           sed -i "s/^  version \".*\"/  version \"${{ steps.latest.outputs.version }}\"/" Casks/archy.rb
           sed -i "s/^  sha256 \".*\"/  sha256 \"${{ steps.hash.outputs.sha }}\"/" Casks/archy.rb
 
       - name: Commit and push
         if: steps.compare.outputs.update == 'true'
         run: |
+          set -euo pipefail
+
           git config user.name "archy-version-check"
           git config user.email "no-reply@genesys.com"
 
           git add Casks/archy.rb
+
+          if git diff --cached --quiet; then
+            echo "No cask changes to commit."
+            exit 0
+          fi
+
           git commit -m "Update archy to ${{ steps.latest.outputs.version }}"
           git push
