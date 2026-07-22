@@ -6,7 +6,7 @@
 
 ```bash
 brew tap cxascode/archy
-brew install --cask archy
+brew install --cask cxascode/archy/archy
 ```
 
 Verify the installation:
