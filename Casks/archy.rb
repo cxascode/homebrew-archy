@@ -1,45 +1,51 @@
 cask "archy" do
-  version "2.40.0"
-  sha256 "b86f4091e7186de89b8513b62673733201bc4da20dcd130a68237a27bac44810"
-
-  url "https://sdk-cdn.mypurecloud.com/archy/#{version}/archy-macos.zip",
-      verified: "sdk-cdn.mypurecloud.com/archy/"
+  version "2.39.4"
   name "Archy"
   desc "YAML processor"
   homepage "https://developer.genesys.cloud/devapps/archy/"
 
+  artifact = on_system_conditional macos: "archy-macos.zip", linux: "archy-linux.zip"
+
+  on_macos do
+    sha256 "eac7f7045f73a888be7eef30be1c205a9d99935a9e9c82e5d2abf329fdbacef3"
+  end
+
+  on_linux do
+    sha256 "2ad6c90c5df260504ab5632a823621a38834ba1b1070b2b7daefe938f9f47dab"
+  end
+
+  url "https://sdk-cdn.mypurecloud.com/archy/#{version}/#{artifact}",
+      verified: "sdk-cdn.mypurecloud.com/archy/"
+
   binary "archy", target: "archy"
 
   postflight do
+    platform = OS.mac? ? "macos" : "linux"
     archypath = staged_path
     launcher = archypath/"archy"
 
     ohai "Patching Archy launcher"
-
-    unless File.exist?(launcher)
-      raise "Launcher not found: #{launcher}"
-    end
+    raise "Launcher not found: #{launcher}" unless File.exist?(launcher)
 
     content = File.read(launcher)
-
     new_content = content.gsub(
-      %r{exec "\./archyBin/archy-macos-[^"]+"},
-      "exec \"#{archypath}/archyBin/archy-macos-#{version}\""
+      %r{exec "\./archyBin/archy-#{platform}-[^"]+"},
+      "exec \"#{archypath}/archyBin/archy-#{platform}-#{version}\""
     )
-
     File.write(launcher, new_content)
   end
 
-  caveats do
-    requires_rosetta
+  on_macos do
+    caveats do
+      requires_rosetta
+      <<~EOS
+        This binary is not signed or notarized. macOS may block it the first time you run it.
 
-    <<~EOS
-      This binary is not signed or notarized. macOS will block it on first run.
+        To run it, either allow it in System Settings → Privacy & Security, or remove the
+        quarantine attribute:
 
-      To run it, either allow it in System Settings (Privacy & Security) or remove the
-      quarantine attribute:
-
-        xattr -dr com.apple.quarantine "$(brew --caskroom)/archy"
-    EOS
+          xattr -dr com.apple.quarantine "$(brew --caskroom)/archy"
+      EOS
+    end
   end
 end

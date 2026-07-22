@@ -2,12 +2,8 @@ name: Archy Version Check
 
 on:
   schedule:
-    - cron: "23 6 * * *" # once per day UTC
+    - cron: "0 0 * * *" # once per day UTC
   workflow_dispatch:
-
-concurrency:
-  group: archy-version-check
-  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -51,7 +47,7 @@ jobs:
           git pull --rebase
           git push
 
-  archyversioncheck:
+  version-check:
     runs-on: ubuntu-latest
 
     steps:
@@ -99,24 +95,28 @@ jobs:
             echo "update=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Download artifact and compute SHA256
+      - name: Download artifacts and compute SHA256
         if: steps.compare.outputs.update == 'true'
         id: hash
         run: |
           set -euo pipefail
 
-          URL="https://sdk-cdn.mypurecloud.com/archy/${{ steps.latest.outputs.version }}/archy-macos.zip"
+          VERSION="${{ steps.latest.outputs.version }}"
+          BASE="https://sdk-cdn.mypurecloud.com/archy/${VERSION}"
 
-          curl -fL "$URL" -o archy.zip
+          curl -fL "${BASE}/archy-macos.zip" -o archy-macos.zip
+          curl -fL "${BASE}/archy-linux.zip" -o archy-linux.zip
 
-          SHA=$(shasum -a 256 archy.zip | awk '{print $1}')
+          MACOS_SHA=$(shasum -a 256 archy-macos.zip | awk '{print $1}')
+          LINUX_SHA=$(shasum -a 256 archy-linux.zip | awk '{print $1}')
 
-          if [ -z "$SHA" ]; then
+          if [ -z "$MACOS_SHA" ] || [ -z "$LINUX_SHA" ]; then
             echo "Failed to compute SHA"
             exit 1
           fi
 
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "macos_sha=$MACOS_SHA" >> "$GITHUB_OUTPUT"
+          echo "linux_sha=$LINUX_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Update cask file
         if: steps.compare.outputs.update == 'true'
@@ -124,7 +124,8 @@ jobs:
           set -euo pipefail
 
           sed -i "s/^  version \".*\"/  version \"${{ steps.latest.outputs.version }}\"/" Casks/archy.rb
-          sed -i "s/^  sha256 \".*\"/  sha256 \"${{ steps.hash.outputs.sha }}\"/" Casks/archy.rb
+          sed -i "/on_macos do/,/^  end$/ s/^    sha256 \".*\"/    sha256 \"${{ steps.hash.outputs.macos_sha }}\"/" Casks/archy.rb
+          sed -i "/on_linux do/,/^  end$/ s/^    sha256 \".*\"/    sha256 \"${{ steps.hash.outputs.linux_sha }}\"/" Casks/archy.rb
 
       - name: Commit and push
         if: steps.compare.outputs.update == 'true'
