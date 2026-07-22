@@ -25,4 +25,4 @@ Either allow it in **System Settings → Privacy & Security**, or remove the qua
 xattr -dr com.apple.quarantine "$(brew --caskroom)/archy"
 ```
 
-This cask also requires [Rosetta](https://support.apple.com/en-us/102527) on Apple Silicon Macs.
+This cask requires [Rosetta](https://support.apple.com/en-us/102527) on Apple Silicon Macs.
