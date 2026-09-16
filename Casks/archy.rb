@@ -14,25 +14,19 @@ cask "archy" do
     sha256 "608d8791d465daa0a01e4655fb39fdcc47c749035f670f0857603e9d0d09feb1"
   end
 
-  url "https://sdk-cdn.mypurecloud.com/archy/#{version}/#{artifact}",
-      verified: "sdk-cdn.mypurecloud.com/archy/"
+  url "https://sdk-cdn.mypurecloud.com/archy/#{version}/#{artifact}"
 
   binary "archy", target: "archy"
 
-  postflight do
-    platform = OS.mac? ? "macos" : "linux"
-    archypath = staged_path
-    launcher = archypath/"archy"
-
-    ohai "Patching Archy launcher"
-    raise "Launcher not found: #{launcher}" unless File.exist?(launcher)
-
-    content = File.read(launcher)
-    new_content = content.gsub(
-      %r{exec "\./archyBin/archy-#{platform}-[^"]+"},
-      "exec \"#{archypath}/archyBin/archy-#{platform}-#{version}\""
-    )
-    File.write(launcher, new_content)
+  postflight_steps do
+    on_macos do
+      inreplace "archy", %r{exec "\./archyBin/archy-macos-[^"]+"},
+                'exec "{{staged_path}}/archyBin/archy-macos-{{version}}"'
+    end
+    on_linux do
+      inreplace "archy", %r{exec "\./archyBin/archy-linux-[^"]+"},
+                'exec "{{staged_path}}/archyBin/archy-linux-{{version}}"'
+    end
   end
 
   on_macos do
