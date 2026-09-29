@@ -1,5 +1,5 @@
 cask "archy" do
-  version "2.43.0"
+  version "2.43.1"
   name "Archy"
   desc "YAML processor"
   homepage "https://developer.genesys.cloud/devapps/archy/"
@@ -7,11 +7,11 @@ cask "archy" do
   artifact = on_system_conditional macos: "archy-macos.zip", linux: "archy-linux.zip"
 
   on_macos do
-    sha256 "21d03c4f331599017382a440b766231fc3e267e3cb3406636a7e26a7837833e0"
+    sha256 "fddba6d0341783a2131304836003ea36dffa271de1e71672de349f844117907c"
   end
 
   on_linux do
-    sha256 "be0ba4ae6220502cc35b47a41aca91d56e23eeb133a4792e250b6e586fdf70c8"
+    sha256 "0b6ba14cc8e034373856e7e1a300711477331ec40c5ef270492aff3b0913018e"
   end
 
   url "https://sdk-cdn.mypurecloud.com/archy/#{version}/#{artifact}"
